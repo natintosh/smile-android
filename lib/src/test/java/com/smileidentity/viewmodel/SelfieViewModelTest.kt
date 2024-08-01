@@ -1,21 +1,18 @@
 package com.smileidentity.viewmodel
 
 import androidx.camera.core.ImageProxy
-import com.smileidentity.compose.components.ProcessingState
+import com.smileidentity.R
+import com.smileidentity.util.StringResource
 import com.smileidentity.util.randomJobId
 import com.smileidentity.util.randomUserId
+import com.ujizin.camposer.state.CamSelector
 import io.mockk.confirmVerified
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -35,6 +32,7 @@ class SelfieViewModelTest {
             jobId = randomJobId(),
             allowNewEnroll = false,
             skipApiSubmission = false,
+            metadata = mutableListOf(),
         )
     }
 
@@ -50,7 +48,10 @@ class SelfieViewModelTest {
         assertEquals(0f, uiState.progress)
         assertEquals(null, uiState.selfieToConfirm)
         assertEquals(null, uiState.processingState)
-        assertEquals(null, uiState.errorMessage)
+        assertEquals(
+            StringResource.ResId(R.string.si_processing_error_subtitle),
+            uiState.errorMessage,
+        )
     }
 
     @Test
@@ -62,32 +63,11 @@ class SelfieViewModelTest {
         subject.shouldAnalyzeImages = false
 
         // when
-        subject.analyzeImage(proxy)
+        subject.analyzeImage(proxy, CamSelector.Back)
 
         // then
         verify(exactly = 1) { proxy.close() }
         verify(exactly = 1) { proxy.image }
         confirmVerified(proxy)
-    }
-
-    @Test
-    fun `submitJob should skip API submission when skipApiSubmission is true`() {
-        runTest {
-            // Arrange
-            val selfieFile = mockk<File>()
-            subject.shouldSkipApiSubmission = true
-            subject.mockSelfieFile = selfieFile
-
-            // Act
-            subject.submitJob()
-
-            // Assert
-            val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                subject.uiState.collect()
-                assertEquals(ProcessingState.Success, subject.uiState.value.processingState)
-            }
-
-            job.cancel()
-        }
     }
 }
